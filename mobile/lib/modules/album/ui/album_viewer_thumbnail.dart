@@ -1,18 +1,15 @@
 import 'package:auto_route/auto_route.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:immich_mobile/constants/hive_box.dart';
 import 'package:immich_mobile/modules/login/providers/authentication.provider.dart';
 import 'package:immich_mobile/modules/album/providers/asset_selection.provider.dart';
 import 'package:immich_mobile/routing/router.dart';
-import 'package:immich_mobile/utils/image_url_builder.dart';
-import 'package:openapi/api.dart';
+import 'package:immich_mobile/shared/models/asset.dart';
+import 'package:immich_mobile/shared/ui/immich_image.dart';
 
 class AlbumViewerThumbnail extends HookConsumerWidget {
-  final AssetResponseDto asset;
-  final List<AssetResponseDto> assetList;
+  final Asset asset;
+  final List<Asset> assetList;
   final bool showStorageIndicator;
 
   const AlbumViewerThumbnail({
@@ -24,15 +21,13 @@ class AlbumViewerThumbnail extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    var box = Hive.box(userInfoBox);
-    var thumbnailRequestUrl = getThumbnailUrl(asset);
     var deviceId = ref.watch(authenticationProvider).deviceId;
     final selectedAssetsInAlbumViewer =
         ref.watch(assetSelectionProvider).selectedAssetsInAlbumViewer;
     final isMultiSelectionEnable =
         ref.watch(assetSelectionProvider).isMultiselectEnable;
 
-    _viewAsset() {
+    viewAsset() {
       AutoRouter.of(context).push(
         GalleryViewerRoute(
           asset: asset,
@@ -52,18 +47,18 @@ class AlbumViewerThumbnail extends HookConsumerWidget {
       }
     }
 
-    _enableMultiSelection() {
+    enableMultiSelection() {
       ref.watch(assetSelectionProvider.notifier).enableMultiselection();
       ref
           .watch(assetSelectionProvider.notifier)
           .addAssetsInAlbumViewer([asset]);
     }
 
-    _disableMultiSelection() {
+    disableMultiSelection() {
       ref.watch(assetSelectionProvider.notifier).disableMultiselection();
     }
 
-    _buildVideoLabel() {
+    buildVideoLabel() {
       return Positioned(
         top: 5,
         right: 5,
@@ -85,7 +80,7 @@ class AlbumViewerThumbnail extends HookConsumerWidget {
       );
     }
 
-    _buildAssetStoreLocationIcon() {
+    buildAssetStoreLocationIcon() {
       return Positioned(
         right: 10,
         bottom: 5,
@@ -99,7 +94,7 @@ class AlbumViewerThumbnail extends HookConsumerWidget {
       );
     }
 
-    _buildAssetSelectionIcon() {
+    buildAssetSelectionIcon() {
       bool isSelected = selectedAssetsInAlbumViewer.contains(asset);
 
       return Positioned(
@@ -117,41 +112,21 @@ class AlbumViewerThumbnail extends HookConsumerWidget {
       );
     }
 
-    _buildThumbnailImage() {
+    buildThumbnailImage() {
       return Container(
         decoration: BoxDecoration(border: drawBorderColor()),
-        child: CachedNetworkImage(
-          cacheKey: asset.id,
-          width: 300,
-          height: 300,
-          memCacheHeight: 200,
-          fit: BoxFit.cover,
-          imageUrl: thumbnailRequestUrl,
-          httpHeaders: {"Authorization": "Bearer ${box.get(accessTokenKey)}"},
-          fadeInDuration: const Duration(milliseconds: 250),
-          progressIndicatorBuilder: (context, url, downloadProgress) =>
-              Transform.scale(
-            scale: 0.2,
-            child: CircularProgressIndicator(value: downloadProgress.progress),
-          ),
-          errorWidget: (context, url, error) {
-            return Icon(
-              Icons.image_not_supported_outlined,
-              color: Theme.of(context).primaryColor,
-            );
-          },
-        ),
+        child: ImmichImage(asset, width: 300, height: 300),
       );
     }
 
-    _handleSelectionGesture() {
+    handleSelectionGesture() {
       if (selectedAssetsInAlbumViewer.contains(asset)) {
         ref
             .watch(assetSelectionProvider.notifier)
             .removeAssetsInAlbumViewer([asset]);
 
         if (selectedAssetsInAlbumViewer.isEmpty) {
-          _disableMultiSelection();
+          disableMultiSelection();
         }
       } else {
         ref
@@ -161,14 +136,14 @@ class AlbumViewerThumbnail extends HookConsumerWidget {
     }
 
     return GestureDetector(
-      onTap: isMultiSelectionEnable ? _handleSelectionGesture : _viewAsset,
-      onLongPress: _enableMultiSelection,
+      onTap: isMultiSelectionEnable ? handleSelectionGesture : viewAsset,
+      onLongPress: enableMultiSelection,
       child: Stack(
         children: [
-          _buildThumbnailImage(),
-          if (showStorageIndicator) _buildAssetStoreLocationIcon(),
-          if (asset.type != AssetTypeEnum.IMAGE) _buildVideoLabel(),
-          if (isMultiSelectionEnable) _buildAssetSelectionIcon(),
+          buildThumbnailImage(),
+          if (showStorageIndicator) buildAssetStoreLocationIcon(),
+          if (!asset.isImage) buildVideoLabel(),
+          if (isMultiSelectionEnable) buildAssetSelectionIcon(),
         ],
       ),
     );

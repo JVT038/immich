@@ -19,7 +19,13 @@
 
 	export let album: AlbumResponseDto;
 
+	const NO_THUMBNAIL = 'no-thumbnail.png';
+
 	let imageData = `/api/asset/thumbnail/${album.albumThumbnailAssetId}?format=${ThumbnailFormat.Webp}`;
+	if (!album.albumThumbnailAssetId) {
+		imageData = NO_THUMBNAIL;
+	}
+
 	const dispatchClick = createEventDispatcher<OnClick>();
 	const dispatchShowContextMenu = createEventDispatcher<OnShowContextMenu>();
 
@@ -45,15 +51,19 @@
 	};
 
 	onMount(async () => {
-		imageData = (await loadHighQualityThumbnail(album.albumThumbnailAssetId)) || 'no-thumbnail.png';
+		imageData = (await loadHighQualityThumbnail(album.albumThumbnailAssetId)) || NO_THUMBNAIL;
 	});
+
+	const locale = navigator.language;
 </script>
 
 <div
 	class="h-[339px] w-[275px] hover:cursor-pointer mt-4 relative"
 	on:click={() => dispatchClick('click', album)}
+	on:keydown={() => dispatchClick('click', album)}
 	data-testid="album-card"
 >
+	<!-- svelte-ignore a11y-click-events-have-key-events -->
 	<div
 		id={`icon-${album.id}`}
 		class="absolute top-2 right-2"
@@ -81,7 +91,7 @@
 		</p>
 
 		<span class="text-xs flex gap-2 dark:text-immich-dark-fg" data-testid="album-details">
-			<p>{album.assetCount} items</p>
+			<p>{album.assetCount.toLocaleString(locale)} {album.assetCount == 1 ? `item` : `items`}</p>
 
 			{#if album.shared}
 				<p>·</p>

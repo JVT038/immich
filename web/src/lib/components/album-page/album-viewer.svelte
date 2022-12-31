@@ -86,19 +86,24 @@
 		}
 	}
 
+	const locale = navigator.language;
+	const albumDateFormat: Intl.DateTimeFormatOptions = {
+		month: 'short',
+		day: 'numeric',
+		year: 'numeric'
+	};
+
 	const getDateRange = () => {
 		const startDate = new Date(album.assets[0].createdAt);
 		const endDate = new Date(album.assets[album.assetCount - 1].createdAt);
 
-		const timeFormatOption: Intl.DateTimeFormatOptions = {
-			month: 'short',
-			day: 'numeric',
-			year: 'numeric'
-		};
+		const startDateString = startDate.toLocaleDateString(locale, albumDateFormat);
+		const endDateString = endDate.toLocaleDateString(locale, albumDateFormat);
 
-		const startDateString = startDate.toLocaleDateString('us-EN', timeFormatOption);
-		const endDateString = endDate.toLocaleDateString('us-EN', timeFormatOption);
-		return `${startDateString} - ${endDateString}`;
+		// If the start and end date are the same, only show one date
+		return startDateString === endDateString
+			? startDateString
+			: `${startDateString} - ${endDateString}`;
 	};
 
 	onMount(async () => {
@@ -231,25 +236,6 @@
 		}
 	};
 
-	const assetUploadedToAlbumHandler = async (event: CustomEvent) => {
-		const { assetIds }: { assetIds: string[] } = event.detail;
-		try {
-			const { data } = await api.albumApi.addAssetsToAlbum(album.id, {
-				assetIds: assetIds
-			});
-
-			if (data.album) {
-				album = data.album;
-			}
-		} catch (e) {
-			console.error('Error [assetUploadedToAlbumHandler] ', e);
-			notificationController.show({
-				type: NotificationType.Error,
-				message: 'Error adding asset to album, check console for more details'
-			});
-		}
-	};
-
 	const addUserHandler = async (event: CustomEvent) => {
 		const { selectedUsers }: { selectedUsers: UserResponseDto[] } = event.detail;
 
@@ -313,41 +299,69 @@
 
 	const downloadAlbum = async () => {
 		try {
-			const fileName = album.albumName + '.zip';
+			let skip = 0;
+			let count = 0;
+			let done = false;
 
-			// If assets is already download -> return;
-			if ($downloadAssets[fileName]) {
-				return;
-			}
+			while (!done) {
+				count++;
 
-			$downloadAssets[fileName] = 0;
+				const fileName = album.albumName + `${count === 1 ? '' : count}.zip`;
 
-			const { data, status } = await api.albumApi.downloadArchive(album.id, {
-				responseType: 'blob'
-			});
+				$downloadAssets[fileName] = 0;
 
-			if (!(data instanceof Blob)) {
-				return;
-			}
+				let total = 0;
 
-			if (status === 200) {
-				const fileUrl = URL.createObjectURL(data);
-				const anchor = document.createElement('a');
-				anchor.href = fileUrl;
-				anchor.download = fileName;
+				const { data, status, headers } = await api.albumApi.downloadArchive(
+					album.id,
+					skip || undefined,
+					{
+						responseType: 'blob',
+						onDownloadProgress: function (progressEvent) {
+							const request = this as XMLHttpRequest;
+							if (!total) {
+								total = Number(request.getResponseHeader('X-Immich-Content-Length-Hint')) || 0;
+							}
 
-				document.body.appendChild(anchor);
-				anchor.click();
-				document.body.removeChild(anchor);
+							if (total) {
+								const current = progressEvent.loaded;
+								$downloadAssets[fileName] = Math.floor((current / total) * 100);
+							}
+						}
+					}
+				);
 
-				URL.revokeObjectURL(fileUrl);
+				const isNotComplete = headers['x-immich-archive-complete'] === 'false';
+				const fileCount = Number(headers['x-immich-archive-file-count']) || 0;
+				if (isNotComplete && fileCount > 0) {
+					skip += fileCount;
+				} else {
+					done = true;
+				}
 
-				// Remove item from download list
-				setTimeout(() => {
-					const copy = $downloadAssets;
-					delete copy[fileName];
-					$downloadAssets = copy;
-				}, 2000);
+				if (!(data instanceof Blob)) {
+					return;
+				}
+
+				if (status === 200) {
+					const fileUrl = URL.createObjectURL(data);
+					const anchor = document.createElement('a');
+					anchor.href = fileUrl;
+					anchor.download = fileName;
+
+					document.body.appendChild(anchor);
+					anchor.click();
+					document.body.removeChild(anchor);
+
+					URL.revokeObjectURL(fileUrl);
+
+					// Remove item from download list
+					setTimeout(() => {
+						const copy = $downloadAssets;
+						delete copy[fileName];
+						$downloadAssets = copy;
+					}, 2000);
+				}
 			}
 		} catch (e) {
 			console.error('Error downloading file ', e);
@@ -558,10 +572,10 @@
 
 {#if isShowAssetSelection}
 	<AssetSelection
+		albumId={album.id}
 		assetsInAlbum={album.assets}
 		on:go-back={() => (isShowAssetSelection = false)}
 		on:create-album={createAlbumHandler}
-		on:asset-uploaded={assetUploadedToAlbumHandler}
 	/>
 {/if}
 

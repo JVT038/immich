@@ -22,12 +22,22 @@ void main() {
       // TODO
     });
 
+    //Future<UserResponseDto> changePassword(ChangePasswordDto changePasswordDto) async
+    test('test changePassword', () async {
+      // TODO
+    });
+
     //Future<LoginResponseDto> login(LoginCredentialDto loginCredentialDto) async
     test('test login', () async {
       // TODO
     });
 
-    //Future<Object> validateAccessToken() async
+    //Future<LogoutResponseDto> logout() async
+    test('test logout', () async {
+      // TODO
+    });
+
+    //Future<ValidateAccessTokenResponseDto> validateAccessToken() async
     test('test validateAccessToken', () async {
       // TODO
     });

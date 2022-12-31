@@ -218,6 +218,8 @@ class ApiClient {
           return AssetResponseDto.fromJson(value);
         case 'AssetTypeEnum':
           return AssetTypeEnumTypeTransformer().decode(value);
+        case 'ChangePasswordDto':
+          return ChangePasswordDto.fromJson(value);
         case 'CheckDuplicateAssetDto':
           return CheckDuplicateAssetDto.fromJson(value);
         case 'CheckDuplicateAssetResponseDto':
@@ -228,10 +230,10 @@ class ApiClient {
           return CheckExistingAssetsResponseDto.fromJson(value);
         case 'CreateAlbumDto':
           return CreateAlbumDto.fromJson(value);
-        case 'CreateDeviceInfoDto':
-          return CreateDeviceInfoDto.fromJson(value);
         case 'CreateProfileImageResponseDto':
           return CreateProfileImageResponseDto.fromJson(value);
+        case 'CreateTagDto':
+          return CreateTagDto.fromJson(value);
         case 'CreateUserDto':
           return CreateUserDto.fromJson(value);
         case 'CuratedLocationsResponseDto':
@@ -270,6 +272,12 @@ class ApiClient {
           return LoginResponseDto.fromJson(value);
         case 'LogoutResponseDto':
           return LogoutResponseDto.fromJson(value);
+        case 'OAuthCallbackDto':
+          return OAuthCallbackDto.fromJson(value);
+        case 'OAuthConfigDto':
+          return OAuthConfigDto.fromJson(value);
+        case 'OAuthConfigResponseDto':
+          return OAuthConfigResponseDto.fromJson(value);
         case 'RemoveAssetsDto':
           return RemoveAssetsDto.fromJson(value);
         case 'SearchAssetDto':
@@ -286,16 +294,34 @@ class ApiClient {
           return SignUpDto.fromJson(value);
         case 'SmartInfoResponseDto':
           return SmartInfoResponseDto.fromJson(value);
+        case 'SystemConfigDto':
+          return SystemConfigDto.fromJson(value);
+        case 'SystemConfigFFmpegDto':
+          return SystemConfigFFmpegDto.fromJson(value);
+        case 'SystemConfigOAuthDto':
+          return SystemConfigOAuthDto.fromJson(value);
+        case 'SystemConfigStorageTemplateDto':
+          return SystemConfigStorageTemplateDto.fromJson(value);
+        case 'SystemConfigTemplateStorageOptionDto':
+          return SystemConfigTemplateStorageOptionDto.fromJson(value);
+        case 'TagResponseDto':
+          return TagResponseDto.fromJson(value);
+        case 'TagTypeEnum':
+          return TagTypeEnumTypeTransformer().decode(value);
         case 'ThumbnailFormat':
           return ThumbnailFormatTypeTransformer().decode(value);
         case 'TimeGroupEnum':
           return TimeGroupEnumTypeTransformer().decode(value);
         case 'UpdateAlbumDto':
           return UpdateAlbumDto.fromJson(value);
-        case 'UpdateDeviceInfoDto':
-          return UpdateDeviceInfoDto.fromJson(value);
+        case 'UpdateAssetDto':
+          return UpdateAssetDto.fromJson(value);
+        case 'UpdateTagDto':
+          return UpdateTagDto.fromJson(value);
         case 'UpdateUserDto':
           return UpdateUserDto.fromJson(value);
+        case 'UpsertDeviceInfoDto':
+          return UpsertDeviceInfoDto.fromJson(value);
         case 'UsageByUserDto':
           return UsageByUserDto.fromJson(value);
         case 'UserCountResponseDto':

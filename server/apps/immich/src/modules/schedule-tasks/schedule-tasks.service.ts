@@ -2,12 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Not, Repository } from 'typeorm';
-import { AssetEntity, AssetType } from '@app/database/entities/asset.entity';
+import { AssetEntity, AssetType, ExifEntity, UserEntity } from '@app/database';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { randomUUID } from 'crypto';
-import { ExifEntity } from '@app/database/entities/exif.entity';
 import {
+  userDeletionProcessorName,
   exifExtractionProcessorName,
   generateWEBPThumbnailProcessorName,
   IMetadataExtractionJob,
@@ -18,10 +18,15 @@ import {
   videoMetadataExtractionProcessorName,
 } from '@app/job';
 import { ConfigService } from '@nestjs/config';
+import { IUserDeletionJob } from '@app/job/interfaces/user-deletion.interface';
+import { userUtils } from '@app/common';
 
 @Injectable()
 export class ScheduleTasksService {
   constructor(
+    @InjectRepository(UserEntity)
+    private userRepository: Repository<UserEntity>,
+
     @InjectRepository(AssetEntity)
     private assetRepository: Repository<AssetEntity>,
 
@@ -36,6 +41,9 @@ export class ScheduleTasksService {
 
     @InjectQueue(QueueNameEnum.METADATA_EXTRACTION)
     private metadataExtractionQueue: Queue<IMetadataExtractionJob>,
+
+    @InjectQueue(QueueNameEnum.USER_DELETION)
+    private userDeletionQueue: Queue<IUserDeletionJob>,
 
     private configService: ConfigService,
   ) {}
@@ -125,6 +133,16 @@ export class ScheduleTasksService {
           { asset, fileName: asset.id },
           { jobId: randomUUID() },
         );
+      }
+    }
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_11PM)
+  async deleteUserAndRelatedAssets() {
+    const usersToDelete = await this.userRepository.find({ withDeleted: true, where: { deletedAt: Not(IsNull()) } });
+    for (const user of usersToDelete) {
+      if (userUtils.isReadyForDeletion(user)) {
+        await this.userDeletionQueue.add(userDeletionProcessorName, { user: user }, { jobId: randomUUID() });
       }
     }
   }

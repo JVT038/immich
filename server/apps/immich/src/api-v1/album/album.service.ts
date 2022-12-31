@@ -1,33 +1,26 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  NotFoundException,
-  ForbiddenException,
-  Logger,
-  InternalServerErrorException,
-} from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { AuthUserDto } from '../../decorators/auth-user.decorator';
 import { CreateAlbumDto } from './dto/create-album.dto';
-import { AlbumEntity } from '@app/database/entities/album.entity';
+import { AlbumEntity } from '@app/database';
 import { AddUsersDto } from './dto/add-users.dto';
 import { RemoveAssetsDto } from './dto/remove-assets.dto';
 import { UpdateAlbumDto } from './dto/update-album.dto';
 import { GetAlbumsDto } from './dto/get-albums.dto';
 import { AlbumResponseDto, mapAlbum, mapAlbumExcludeAssetInfo } from './response-dto/album-response.dto';
-import { ALBUM_REPOSITORY, IAlbumRepository } from './album-repository';
+import { IAlbumRepository } from './album-repository';
 import { AlbumCountResponseDto } from './response-dto/album-count-response.dto';
-import { ASSET_REPOSITORY, IAssetRepository } from '../asset/asset-repository';
+import { IAssetRepository } from '../asset/asset-repository';
 import { AddAssetsResponseDto } from './response-dto/add-assets-response.dto';
 import { AddAssetsDto } from './dto/add-assets.dto';
-import { Response as Res } from 'express';
-import archiver from 'archiver';
+import { DownloadService } from '../../modules/download/download.service';
+import { DownloadDto } from '../asset/dto/download-library.dto';
 
 @Injectable()
 export class AlbumService {
   constructor(
-    @Inject(ALBUM_REPOSITORY) private _albumRepository: IAlbumRepository,
-    @Inject(ASSET_REPOSITORY) private _assetRepository: IAssetRepository,
+    @Inject(IAlbumRepository) private _albumRepository: IAlbumRepository,
+    @Inject(IAssetRepository) private _assetRepository: IAssetRepository,
+    private downloadService: DownloadService,
   ) {}
 
   private async _getAlbum({
@@ -64,11 +57,13 @@ export class AlbumService {
    * @returns All Shared Album And Its Members
    */
   async getAllAlbums(authUser: AuthUserDto, getAlbumsDto: GetAlbumsDto): Promise<AlbumResponseDto[]> {
+    let albums: AlbumEntity[];
+
     if (typeof getAlbumsDto.assetId === 'string') {
-      const albums = await this._albumRepository.getListByAssetId(authUser.id, getAlbumsDto.assetId);
-      return albums.map(mapAlbumExcludeAssetInfo);
+      albums = await this._albumRepository.getListByAssetId(authUser.id, getAlbumsDto.assetId);
+    } else {
+      albums = await this._albumRepository.getList(authUser.id, getAlbumsDto);
     }
-    const albums = await this._albumRepository.getList(authUser.id, getAlbumsDto);
 
     for (const album of albums) {
       await this._checkValidThumbnail(album);
@@ -111,8 +106,18 @@ export class AlbumService {
     albumId: string,
   ): Promise<AlbumResponseDto> {
     const album = await this._getAlbum({ authUser, albumId });
-    const updateAlbum = await this._albumRepository.removeAssets(album, removeAssetsDto);
-    return mapAlbum(updateAlbum);
+    const deletedCount = await this._albumRepository.removeAssets(album, removeAssetsDto);
+    const newAlbum = await this._getAlbum({ authUser, albumId });
+
+    if (newAlbum) {
+      await this._checkValidThumbnail(newAlbum);
+    }
+
+    if (deletedCount !== removeAssetsDto.assetIds.length) {
+      throw new BadRequestException('Some assets were not found in the album');
+    }
+
+    return mapAlbum(newAlbum);
   }
 
   async addAssetsToAlbum(
@@ -149,34 +154,24 @@ export class AlbumService {
     return this._albumRepository.getCountByUserId(authUser.id);
   }
 
-  async downloadArchive(authUser: AuthUserDto, albumId: string, res: Res) {
-    try {
-      const album = await this._getAlbum({ authUser, albumId, validateIsOwner: false });
-      const archive = archiver('zip', { store: true });
-      res.attachment(`${album.albumName}.zip`);
-      archive.pipe(res);
-      album.assets?.forEach((a) => {
-        const name = `${a.assetInfo.exifInfo?.imageName || a.assetInfo.id}.${a.assetInfo.originalPath.split('.')[1]}`;
-        archive.file(a.assetInfo.originalPath, { name });
-      });
-      return archive.finalize();
-    } catch (e) {
-      Logger.error(`Error downloading album ${e}`, 'downloadArchive');
-      throw new InternalServerErrorException(`Failed to download album ${e}`, 'DownloadArchive');
-    }
+  async downloadArchive(authUser: AuthUserDto, albumId: string, dto: DownloadDto) {
+    const album = await this._getAlbum({ authUser, albumId, validateIsOwner: false });
+    const assets = (album.assets || []).map((asset) => asset.assetInfo).slice(dto.skip || 0);
+
+    return this.downloadService.downloadArchive(album.albumName, assets);
   }
 
-  async _checkValidThumbnail(album: AlbumEntity): Promise<AlbumEntity> {
-    const assetId = album.albumThumbnailAssetId;
-    if (assetId) {
-      try {
-        await this._assetRepository.getById(assetId);
-      } catch (e) {
-        album.albumThumbnailAssetId = null;
-        return await this._albumRepository.updateAlbum(album, {});
+  async _checkValidThumbnail(album: AlbumEntity) {
+    const assets = album.assets || [];
+    const valid = assets.some((asset) => asset.assetId === album.albumThumbnailAssetId);
+    if (!valid) {
+      let dto: UpdateAlbumDto = {};
+      if (assets.length > 0) {
+        const albumThumbnailAssetId = assets[0].assetId;
+        dto = { albumThumbnailAssetId };
       }
+      await this._albumRepository.updateAlbum(album, dto);
+      album.albumThumbnailAssetId = dto.albumThumbnailAssetId || null;
     }
-
-    return album;
   }
 }

@@ -50,6 +50,11 @@ class BackgroundService {
       _Throttle(_updateProgress, notifyInterval);
   late final _Throttle _throttledDetailNotify =
       _Throttle(_updateDetailProgress, notifyInterval);
+  Completer<bool> _hasAccessCompleter = Completer();
+  late Future<bool> _hasAccess =
+      Platform.isAndroid ? _hasAccessCompleter.future : Future.value(true);
+
+  Future<bool> get hasAccess => _hasAccess;
 
   bool get isBackgroundInitialized {
     return _isBackgroundInitialized;
@@ -81,6 +86,8 @@ class BackgroundService {
   Future<bool> configureService({
     bool requireUnmetered = true,
     bool requireCharging = false,
+    int triggerUpdateDelay = 5000,
+    int triggerMaxDelay = 50000,
   }) async {
     if (!Platform.isAndroid) {
       return true;
@@ -88,7 +95,12 @@ class BackgroundService {
     try {
       final bool ok = await _foregroundChannel.invokeMethod(
         'configure',
-        [requireUnmetered, requireCharging],
+        [
+          requireUnmetered,
+          requireCharging,
+          triggerUpdateDelay,
+          triggerMaxDelay
+        ],
       );
       return ok;
     } catch (error) {
@@ -201,6 +213,15 @@ class BackgroundService {
     if (!Platform.isAndroid) {
       return true;
     }
+    if (_hasLock) {
+      debugPrint("WARNING: [acquireLock] called more than once");
+      return true;
+    }
+    if (_hasAccessCompleter.isCompleted) {
+      debugPrint("WARNING: [acquireLock] _hasAccessCompleter is completed");
+      _hasAccessCompleter = Completer();
+      _hasAccess = _hasAccessCompleter.future;
+    }
     final int lockTime = Timeline.now;
     _wantsLockTime = lockTime;
     final ReceivePort rp = ReceivePort(_portNameLock);
@@ -219,6 +240,7 @@ class BackgroundService {
     }
     _hasLock = true;
     rp.listen(_heartbeatListener);
+    _hasAccessCompleter.complete(true);
     return true;
   }
 
@@ -271,6 +293,8 @@ class BackgroundService {
     }
     _wantsLockTime = 0;
     if (_hasLock) {
+      _hasAccessCompleter = Completer();
+      _hasAccess = _hasAccessCompleter.future;
       IsolateNameServer.removePortNameMapping(_portNameLock);
       _waitingIsolate?.send(true);
       _waitingIsolate = null;
@@ -332,7 +356,6 @@ class BackgroundService {
       Hive.openBox<HiveDuplicatedAssets>(duplicatedAssetsBox),
       Hive.openBox<HiveBackupAlbums>(hiveBackupInfoBox),
     ]);
-
     ApiService apiService = ApiService();
     apiService.setEndpoint(Hive.box(userInfoBox).get(serverEndpointKey));
     apiService.setAccessToken(Hive.box(userInfoBox).get(accessTokenKey));

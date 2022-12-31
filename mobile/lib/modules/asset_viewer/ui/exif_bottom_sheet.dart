@@ -2,19 +2,21 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:immich_mobile/shared/models/asset.dart';
 import 'package:openapi/api.dart';
 import 'package:path/path.dart' as p;
 import 'package:latlong2/latlong.dart';
+import 'package:immich_mobile/utils/bytes_units.dart';
 
 class ExifBottomSheet extends ConsumerWidget {
-  final AssetResponseDto assetDetail;
+  final Asset assetDetail;
 
   const ExifBottomSheet({Key? key, required this.assetDetail})
       : super(key: key);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    _buildMap() {
+    buildMap() {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 16.0),
         child: Container(
@@ -26,8 +28,8 @@ class ExifBottomSheet extends ConsumerWidget {
           child: FlutterMap(
             options: MapOptions(
               center: LatLng(
-                assetDetail.exifInfo?.latitude?.toDouble() ?? 0,
-                assetDetail.exifInfo?.longitude?.toDouble() ?? 0,
+                assetDetail.latitude ?? 0,
+                assetDetail.longitude ?? 0,
               ),
               zoom: 16.0,
             ),
@@ -48,8 +50,8 @@ class ExifBottomSheet extends ConsumerWidget {
                   Marker(
                     anchorPos: AnchorPos.align(AnchorAlign.top),
                     point: LatLng(
-                      assetDetail.exifInfo?.latitude?.toDouble() ?? 0,
-                      assetDetail.exifInfo?.longitude?.toDouble() ?? 0,
+                      assetDetail.latitude ?? 0,
+                      assetDetail.longitude ?? 0,
                     ),
                     builder: (ctx) => const Image(
                       image: AssetImage('assets/location-pin.png'),
@@ -63,9 +65,11 @@ class ExifBottomSheet extends ConsumerWidget {
       );
     }
 
-    _buildLocationText() {
+    ExifResponseDto? exifInfo = assetDetail.remote?.exifInfo;
+
+    buildLocationText() {
       return Text(
-        "${assetDetail.exifInfo!.city}, ${assetDetail.exifInfo!.state}",
+        "${exifInfo?.city}, ${exifInfo?.state}",
         style: TextStyle(
           fontSize: 12,
           color: Colors.grey[200],
@@ -78,10 +82,10 @@ class ExifBottomSheet extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 8),
       child: ListView(
         children: [
-          if (assetDetail.exifInfo?.dateTimeOriginal != null)
+          if (exifInfo?.dateTimeOriginal != null)
             Text(
               DateFormat('date_format'.tr()).format(
-                assetDetail.exifInfo!.dateTimeOriginal!.toLocal(),
+                exifInfo!.dateTimeOriginal!.toLocal(),
               ),
               style: TextStyle(
                 color: Colors.grey[400],
@@ -101,7 +105,7 @@ class ExifBottomSheet extends ConsumerWidget {
           ),
 
           // Location
-          if (assetDetail.exifInfo?.latitude != null)
+          if (assetDetail.latitude != null)
             Padding(
               padding: const EdgeInsets.only(top: 32.0),
               child: Column(
@@ -115,21 +119,22 @@ class ExifBottomSheet extends ConsumerWidget {
                     "exif_bottom_sheet_location",
                     style: TextStyle(fontSize: 11, color: Colors.grey[400]),
                   ).tr(),
-                  if (assetDetail.exifInfo?.latitude != null &&
-                      assetDetail.exifInfo?.longitude != null)
-                    _buildMap(),
-                  if (assetDetail.exifInfo?.city != null &&
-                      assetDetail.exifInfo?.state != null)
-                    _buildLocationText(),
+                  if (assetDetail.latitude != null &&
+                      assetDetail.longitude != null)
+                    buildMap(),
+                  if (exifInfo != null &&
+                      exifInfo.city != null &&
+                      exifInfo.state != null)
+                    buildLocationText(),
                   Text(
-                    "${assetDetail.exifInfo?.latitude?.toStringAsFixed(4)}, ${assetDetail.exifInfo?.longitude?.toStringAsFixed(4)}",
+                    "${assetDetail.latitude?.toStringAsFixed(4)}, ${assetDetail.longitude?.toStringAsFixed(4)}",
                     style: TextStyle(fontSize: 12, color: Colors.grey[400]),
                   )
                 ],
               ),
             ),
           // Detail
-          if (assetDetail.exifInfo != null)
+          if (exifInfo != null)
             Padding(
               padding: const EdgeInsets.only(top: 32.0),
               child: Column(
@@ -153,16 +158,16 @@ class ExifBottomSheet extends ConsumerWidget {
                     iconColor: Colors.grey[300],
                     leading: const Icon(Icons.image),
                     title: Text(
-                      "${assetDetail.exifInfo?.imageName!}${p.extension(assetDetail.originalPath)}",
+                      "${exifInfo.imageName!}${p.extension(assetDetail.remote!.originalPath)}",
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    subtitle: assetDetail.exifInfo?.exifImageHeight != null
+                    subtitle: exifInfo.exifImageHeight != null
                         ? Text(
-                            "${assetDetail.exifInfo?.exifImageHeight} x ${assetDetail.exifInfo?.exifImageWidth}  ${assetDetail.exifInfo?.fileSizeInByte!}B ",
+                            "${exifInfo.exifImageHeight} x ${exifInfo.exifImageWidth}  ${formatBytes(exifInfo.fileSizeInByte!)} ",
                           )
                         : null,
                   ),
-                  if (assetDetail.exifInfo?.make != null)
+                  if (exifInfo.make != null)
                     ListTile(
                       contentPadding: const EdgeInsets.all(0),
                       dense: true,
@@ -170,11 +175,11 @@ class ExifBottomSheet extends ConsumerWidget {
                       iconColor: Colors.grey[300],
                       leading: const Icon(Icons.camera),
                       title: Text(
-                        "${assetDetail.exifInfo?.make} ${assetDetail.exifInfo?.model}",
+                        "${exifInfo.make} ${exifInfo.model}",
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       subtitle: Text(
-                        "ƒ/${assetDetail.exifInfo?.fNumber}   1/${(1 / (assetDetail.exifInfo?.exposureTime ?? 1)).toStringAsFixed(0)}   ${assetDetail.exifInfo?.focalLength}mm   ISO${assetDetail.exifInfo?.iso} ",
+                        "ƒ/${exifInfo.fNumber}   1/${(1 / (exifInfo.exposureTime ?? 1)).toStringAsFixed(0)}   ${exifInfo.focalLength} mm   ISO${exifInfo.iso} ",
                       ),
                     ),
                 ],

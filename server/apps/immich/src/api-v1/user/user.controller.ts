@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
   Body,
   Param,
   ValidationPipe,
@@ -11,6 +12,8 @@ import {
   UploadedFile,
   Response,
   ParseBoolPipe,
+  StreamableFile,
+  Header,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { Authenticated } from '../../decorators/authenticated.decorator';
@@ -25,6 +28,7 @@ import { UserResponseDto } from './response-dto/user-response.dto';
 import { UserCountResponseDto } from './response-dto/user-count-response.dto';
 import { CreateProfileImageDto } from './dto/create-profile-image.dto';
 import { CreateProfileImageResponseDto } from './response-dto/create-profile-image-response.dto';
+import { UserCountDto } from './dto/user-count.dto';
 
 @ApiTags('User')
 @Controller('user')
@@ -63,8 +67,22 @@ export class UserController {
   }
 
   @Get('/count')
-  async getUserCount(): Promise<UserCountResponseDto> {
-    return await this.userService.getUserCount();
+  async getUserCount(@Query(new ValidationPipe({ transform: true })) dto: UserCountDto): Promise<UserCountResponseDto> {
+    return await this.userService.getUserCount(dto);
+  }
+
+  @Authenticated({ admin: true })
+  @ApiBearerAuth()
+  @Delete('/:userId')
+  async deleteUser(@GetAuthUser() authUser: AuthUserDto, @Param('userId') userId: string): Promise<UserResponseDto> {
+    return await this.userService.deleteUser(authUser, userId);
+  }
+
+  @Authenticated({ admin: true })
+  @ApiBearerAuth()
+  @Post('/:userId/restore')
+  async restoreUser(@GetAuthUser() authUser: AuthUserDto, @Param('userId') userId: string): Promise<UserResponseDto> {
+    return await this.userService.restoreUser(authUser, userId);
   }
 
   @Authenticated()
@@ -94,7 +112,12 @@ export class UserController {
   }
 
   @Get('/profile-image/:userId')
+  @Header('Cache-Control', 'max-age=86400')
   async getProfileImage(@Param('userId') userId: string, @Response({ passthrough: true }) res: Res): Promise<any> {
-    return this.userService.getUserProfileImage(userId, res);
+    const readableStream = await this.userService.getUserProfileImage(userId);
+    res.set({
+      'Content-Type': 'image/jpeg',
+    });
+    return new StreamableFile(readableStream);
   }
 }

@@ -29,3 +29,14 @@ export enum MachineLearningJobNameEnum {
   OBJECT_DETECTION = 'detect-object',
   IMAGE_TAGGING = 'tag-image',
 }
+
+/**
+ * User deletion Queue Jobs
+ */
+export const userDeletionProcessorName = 'user-deletion';
+
+/**
+ * Storage Template Migration Queue Jobs
+ */
+export const templateMigrationProcessorName = 'template-migration';
+export const updateTemplateProcessorName = 'update-template';

@@ -1,4 +1,5 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, CreateDateColumn, DeleteDateColumn, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { TagEntity } from './tag.entity';
 
 @Entity('users')
 export class UserEntity {
@@ -14,14 +15,14 @@ export class UserEntity {
   @Column({ default: false })
   isAdmin!: boolean;
 
-  @Column()
+  @Column({ unique: true })
   email!: string;
 
-  @Column({ select: false })
+  @Column({ default: '', select: false })
   password?: string;
 
-  @Column({ select: false })
-  salt?: string;
+  @Column({ default: '' })
+  oauthId!: string;
 
   @Column({ default: '' })
   profileImagePath!: string;
@@ -31,4 +32,10 @@ export class UserEntity {
 
   @CreateDateColumn()
   createdAt!: string;
+
+  @DeleteDateColumn()
+  deletedAt?: Date;
+
+  @OneToMany(() => TagEntity, (tag) => tag.user)
+  tags!: TagEntity[];
 }

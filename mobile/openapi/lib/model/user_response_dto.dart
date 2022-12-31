@@ -21,6 +21,8 @@ class UserResponseDto {
     required this.profileImagePath,
     required this.shouldChangePassword,
     required this.isAdmin,
+    this.deletedAt,
+    required this.oauthId,
   });
 
   String id;
@@ -39,6 +41,16 @@ class UserResponseDto {
 
   bool isAdmin;
 
+  ///
+  /// Please note: This property should have been non-nullable! Since the specification file
+  /// does not include a default value (using the "default:" property), however, the generated
+  /// source code must fall back to having a nullable type.
+  /// Consider adding a "default:" property in the specification file to hide this note.
+  ///
+  DateTime? deletedAt;
+
+  String oauthId;
+
   @override
   bool operator ==(Object other) => identical(this, other) || other is UserResponseDto &&
      other.id == id &&
@@ -48,7 +60,9 @@ class UserResponseDto {
      other.createdAt == createdAt &&
      other.profileImagePath == profileImagePath &&
      other.shouldChangePassword == shouldChangePassword &&
-     other.isAdmin == isAdmin;
+     other.isAdmin == isAdmin &&
+     other.deletedAt == deletedAt &&
+     other.oauthId == oauthId;
 
   @override
   int get hashCode =>
@@ -60,10 +74,12 @@ class UserResponseDto {
     (createdAt.hashCode) +
     (profileImagePath.hashCode) +
     (shouldChangePassword.hashCode) +
-    (isAdmin.hashCode);
+    (isAdmin.hashCode) +
+    (deletedAt == null ? 0 : deletedAt!.hashCode) +
+    (oauthId.hashCode);
 
   @override
-  String toString() => 'UserResponseDto[id=$id, email=$email, firstName=$firstName, lastName=$lastName, createdAt=$createdAt, profileImagePath=$profileImagePath, shouldChangePassword=$shouldChangePassword, isAdmin=$isAdmin]';
+  String toString() => 'UserResponseDto[id=$id, email=$email, firstName=$firstName, lastName=$lastName, createdAt=$createdAt, profileImagePath=$profileImagePath, shouldChangePassword=$shouldChangePassword, isAdmin=$isAdmin, deletedAt=$deletedAt, oauthId=$oauthId]';
 
   Map<String, dynamic> toJson() {
     final _json = <String, dynamic>{};
@@ -75,6 +91,12 @@ class UserResponseDto {
       _json[r'profileImagePath'] = profileImagePath;
       _json[r'shouldChangePassword'] = shouldChangePassword;
       _json[r'isAdmin'] = isAdmin;
+    if (deletedAt != null) {
+      _json[r'deletedAt'] = deletedAt!.toUtc().toIso8601String();
+    } else {
+      _json[r'deletedAt'] = null;
+    }
+      _json[r'oauthId'] = oauthId;
     return _json;
   }
 
@@ -105,6 +127,8 @@ class UserResponseDto {
         profileImagePath: mapValueOfType<String>(json, r'profileImagePath')!,
         shouldChangePassword: mapValueOfType<bool>(json, r'shouldChangePassword')!,
         isAdmin: mapValueOfType<bool>(json, r'isAdmin')!,
+        deletedAt: mapDateTime(json, r'deletedAt', ''),
+        oauthId: mapValueOfType<String>(json, r'oauthId')!,
       );
     }
     return null;
@@ -162,6 +186,7 @@ class UserResponseDto {
     'profileImagePath',
     'shouldChangePassword',
     'isAdmin',
+    'oauthId',
   };
 }
 

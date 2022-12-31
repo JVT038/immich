@@ -5,78 +5,28 @@ import { ImmichJwtService } from '../../modules/immich-jwt/immich-jwt.service';
 import { ImmichJwtModule } from '../../modules/immich-jwt/immich-jwt.module';
 import { JwtModule } from '@nestjs/jwt';
 import { jwtConfig } from '../../config/jwt.config';
-import { UserEntity } from '@app/database/entities/user.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ExifEntity } from '@app/database';
+import { TagModule } from '../tag/tag.module';
+import { AssetModule } from '../asset/asset.module';
+import { UserModule } from '../user/user.module';
+
+import { StorageModule } from '@app/storage';
 import { BullModule } from '@nestjs/bull';
-import { QueueNameEnum } from '@app/job';
-import { AssetEntity } from '@app/database/entities/asset.entity';
-import { ExifEntity } from '@app/database/entities/exif.entity';
-import { AssetRepository, ASSET_REPOSITORY } from '../asset/asset-repository';
+import { immichSharedQueues } from '@app/job/constants/bull-queue-registration.constant';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([UserEntity, AssetEntity, ExifEntity]),
+    TypeOrmModule.forFeature([ExifEntity]),
     ImmichJwtModule,
+    TagModule,
+    AssetModule,
+    UserModule,
     JwtModule.register(jwtConfig),
-    BullModule.registerQueue(
-      {
-        name: QueueNameEnum.THUMBNAIL_GENERATION,
-        defaultJobOptions: {
-          attempts: 3,
-          removeOnComplete: true,
-          removeOnFail: false,
-        },
-      },
-      {
-        name: QueueNameEnum.ASSET_UPLOADED,
-        defaultJobOptions: {
-          attempts: 3,
-          removeOnComplete: true,
-          removeOnFail: false,
-        },
-      },
-      {
-        name: QueueNameEnum.METADATA_EXTRACTION,
-        defaultJobOptions: {
-          attempts: 3,
-          removeOnComplete: true,
-          removeOnFail: false,
-        },
-      },
-      {
-        name: QueueNameEnum.VIDEO_CONVERSION,
-        defaultJobOptions: {
-          attempts: 3,
-          removeOnComplete: true,
-          removeOnFail: false,
-        },
-      },
-      {
-        name: QueueNameEnum.CHECKSUM_GENERATION,
-        defaultJobOptions: {
-          attempts: 3,
-          removeOnComplete: true,
-          removeOnFail: false,
-        },
-      },
-      {
-        name: QueueNameEnum.MACHINE_LEARNING,
-        defaultJobOptions: {
-          attempts: 3,
-          removeOnComplete: true,
-          removeOnFail: false,
-        },
-      },
-    ),
+    StorageModule,
+    BullModule.registerQueue(...immichSharedQueues),
   ],
   controllers: [JobController],
-  providers: [
-    JobService,
-    ImmichJwtService,
-    {
-      provide: ASSET_REPOSITORY,
-      useClass: AssetRepository,
-    },
-  ],
+  providers: [JobService, ImmichJwtService],
 })
 export class JobModule {}

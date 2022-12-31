@@ -1,4 +1,4 @@
-import { UserEntity } from '@app/database/entities/user.entity';
+import { UserEntity } from '@app/database';
 
 export class UserResponseDto {
   id!: string;
@@ -9,6 +9,8 @@ export class UserResponseDto {
   profileImagePath!: string;
   shouldChangePassword!: boolean;
   isAdmin!: boolean;
+  deletedAt?: Date;
+  oauthId!: string;
 }
 
 export function mapUser(entity: UserEntity): UserResponseDto {
@@ -21,5 +23,7 @@ export function mapUser(entity: UserEntity): UserResponseDto {
     profileImagePath: entity.profileImagePath,
     shouldChangePassword: entity.shouldChangePassword,
     isAdmin: entity.isAdmin,
+    deletedAt: entity.deletedAt,
+    oauthId: entity.oauthId,
   };
 }

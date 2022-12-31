@@ -1,6 +1,7 @@
-import { Column, Entity, Index, OneToOne, PrimaryGeneratedColumn, Unique } from 'typeorm';
+import { Column, Entity, Index, JoinTable, ManyToMany, OneToOne, PrimaryGeneratedColumn, Unique } from 'typeorm';
 import { ExifEntity } from './exif.entity';
 import { SmartInfoEntity } from './smart-info.entity';
+import { TagEntity } from './tag.entity';
 
 @Entity('assets')
 @Unique('UQ_userid_checksum', ['userId', 'checksum'])
@@ -51,11 +52,22 @@ export class AssetEntity {
   @Column({ type: 'varchar', nullable: true })
   duration!: string | null;
 
+  @Column({ type: 'boolean', default: true })
+  isVisible!: boolean;
+
+  @Column({ type: 'uuid', nullable: true })
+  livePhotoVideoId!: string | null;
+
   @OneToOne(() => ExifEntity, (exifEntity) => exifEntity.asset)
   exifInfo?: ExifEntity;
 
   @OneToOne(() => SmartInfoEntity, (smartInfoEntity) => smartInfoEntity.asset)
   smartInfo?: SmartInfoEntity;
+
+  // https://github.com/typeorm/typeorm/blob/master/docs/many-to-many-relations.md
+  @ManyToMany(() => TagEntity, (tag) => tag.assets, { cascade: true })
+  @JoinTable({ name: 'tag_asset' })
+  tags!: TagEntity[];
 }
 
 export enum AssetType {

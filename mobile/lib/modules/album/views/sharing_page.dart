@@ -18,7 +18,6 @@ class SharingPage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     var box = Hive.box(userInfoBox);
-    var thumbnailRequestUrl = '${box.get(serverEndpointKey)}/asset/thumbnail';
     final List<AlbumResponseDto> sharedAlbums = ref.watch(sharedAlbumProvider);
 
     useEffect(
@@ -29,7 +28,7 @@ class SharingPage extends HookConsumerWidget {
       [],
     );
 
-    _buildAlbumList() {
+    buildAlbumList() {
       return SliverList(
         delegate: SliverChildBuilderDelegate(
           (BuildContext context, int index) {
@@ -43,10 +42,9 @@ class SharingPage extends HookConsumerWidget {
                 child: CachedNetworkImage(
                   width: 60,
                   height: 60,
-                  memCacheHeight: 200,
                   fit: BoxFit.cover,
                   imageUrl: getAlbumThumbnailUrl(album),
-                  cacheKey: album.albumThumbnailAssetId,
+                  cacheKey: getAlbumThumbNailCacheKey(album),
                   httpHeaders: {
                     "Authorization": "Bearer ${box.get(accessTokenKey)}"
                   },
@@ -72,7 +70,7 @@ class SharingPage extends HookConsumerWidget {
       );
     }
 
-    _buildEmptyListIndication() {
+    buildEmptyListIndication() {
       return SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.all(8.0),
@@ -137,8 +135,8 @@ class SharingPage extends HookConsumerWidget {
             ),
           ),
           sharedAlbums.isNotEmpty
-              ? _buildAlbumList()
-              : _buildEmptyListIndication()
+              ? buildAlbumList()
+              : buildEmptyListIndication()
         ],
       ),
     );

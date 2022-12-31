@@ -1,3 +1,4 @@
+import { env } from '$env/dynamic/public';
 import {
 	AlbumApi,
 	AssetApi,
@@ -5,7 +6,9 @@ import {
 	Configuration,
 	DeviceInfoApi,
 	JobApi,
+	OAuthApi,
 	ServerInfoApi,
+	SystemConfigApi,
 	UserApi
 } from './open-api';
 
@@ -14,9 +17,11 @@ class ImmichApi {
 	public albumApi: AlbumApi;
 	public assetApi: AssetApi;
 	public authenticationApi: AuthenticationApi;
+	public oauthApi: OAuthApi;
 	public deviceInfoApi: DeviceInfoApi;
 	public serverInfoApi: ServerInfoApi;
 	public jobApi: JobApi;
+	public systemConfigApi: SystemConfigApi;
 
 	private config = new Configuration({ basePath: '/api' });
 
@@ -25,9 +30,11 @@ class ImmichApi {
 		this.albumApi = new AlbumApi(this.config);
 		this.assetApi = new AssetApi(this.config);
 		this.authenticationApi = new AuthenticationApi(this.config);
+		this.oauthApi = new OAuthApi(this.config);
 		this.deviceInfoApi = new DeviceInfoApi(this.config);
 		this.serverInfoApi = new ServerInfoApi(this.config);
 		this.jobApi = new JobApi(this.config);
+		this.systemConfigApi = new SystemConfigApi(this.config);
 	}
 
 	public setAccessToken(accessToken: string) {
@@ -45,4 +52,5 @@ class ImmichApi {
 
 export const api = new ImmichApi();
 export const serverApi = new ImmichApi();
-serverApi.setBaseUrl('http://immich-server:3001');
+const immich_server_url = env.PUBLIC_IMMICH_SERVER_URL || 'http://immich-server:3001';
+serverApi.setBaseUrl(immich_server_url);

@@ -1,4 +1,4 @@
-import { immichAppConfig } from '@app/common/config';
+import { immichAppConfig, immichBullAsyncConfig } from '@app/common/config';
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { UserModule } from './api-v1/user/user.module';
 import { AssetModule } from './api-v1/asset/asset.module';
@@ -16,6 +16,9 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { ScheduleTasksModule } from './modules/schedule-tasks/schedule-tasks.module';
 import { DatabaseModule } from '@app/database';
 import { JobModule } from './api-v1/job/job.module';
+import { SystemConfigModule } from './api-v1/system-config/system-config.module';
+import { OAuthModule } from './api-v1/oauth/oauth.module';
+import { TagModule } from './api-v1/tag/tag.module';
 
 @Module({
   imports: [
@@ -27,23 +30,13 @@ import { JobModule } from './api-v1/job/job.module';
     AssetModule,
 
     AuthModule,
+    OAuthModule,
 
     ImmichJwtModule,
 
     DeviceInfoModule,
 
-    BullModule.forRootAsync({
-      useFactory: async () => ({
-        prefix: 'immich_bull',
-        redis: {
-          host: process.env.REDIS_HOSTNAME || 'immich_redis',
-          port: parseInt(process.env.REDIS_PORT || '6379'),
-          db: parseInt(process.env.REDIS_DBINDEX || '0'),
-          password: process.env.REDIS_PASSWORD || undefined,
-          path: process.env.REDIS_SOCKET || undefined,
-        },
-      }),
-    }),
+    BullModule.forRootAsync(immichBullAsyncConfig),
 
     ServerInfoModule,
 
@@ -58,6 +51,10 @@ import { JobModule } from './api-v1/job/job.module';
     ScheduleTasksModule,
 
     JobModule,
+
+    SystemConfigModule,
+
+    TagModule,
   ],
   controllers: [AppController],
   providers: [],

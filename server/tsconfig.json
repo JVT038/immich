@@ -33,6 +33,18 @@
       ],
       "@app/job/*": [
         "libs/job/src/*"
+      ],
+      "@app/immich-config": [
+        "libs/immich-config/src"
+      ],
+      "@app/immich-config/*": [
+        "libs/immich-config/src/*"
+      ],
+      "@app/storage": [
+        "libs/storage/src"
+      ],
+      "@app/storage/*": [
+        "libs/storage/src/*"
       ]
     }
   },

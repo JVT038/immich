@@ -1,19 +1,28 @@
 <script lang="ts">
 	import { createEventDispatcher, onMount, onDestroy } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import AsserViewerNavBar from './asset-viewer-nav-bar.svelte';
+	import AssetViewerNavBar from './asset-viewer-nav-bar.svelte';
 	import ChevronRight from 'svelte-material-icons/ChevronRight.svelte';
 	import ChevronLeft from 'svelte-material-icons/ChevronLeft.svelte';
 	import PhotoViewer from './photo-viewer.svelte';
 	import DetailPanel from './detail-panel.svelte';
+	import { goto } from '$app/navigation';
 	import { downloadAssets } from '$lib/stores/download';
 	import VideoViewer from './video-viewer.svelte';
-	import { api, AssetResponseDto, AssetTypeEnum, AlbumResponseDto } from '@api';
+	import AlbumSelectionModal from '../shared-components/album-selection-modal.svelte';
+	import {
+		api,
+		AssetResponseDto,
+		AssetTypeEnum,
+		AlbumResponseDto
+	} from '@api';
 	import {
 		notificationController,
 		NotificationType
 	} from '../shared-components/notification/notification';
+
 	import { assetStore } from '$lib/stores/assets.store';
+	import { addAssetsToAlbum } from '$lib/utils/asset-utils';
 
 	export let asset: AssetResponseDto;
 	$: {
@@ -29,7 +38,9 @@
 	let halfRightHover = false;
 	let isShowDetail = false;
 	let appearsInAlbums: AlbumResponseDto[] = [];
-
+	let isShowAlbumPicker = false;
+	let addToSharedAlbum = true;
+	let shouldPlayMotionPhoto = false;
 	const onKeyboardPress = (keyInfo: KeyboardEvent) => handleKeyboardPress(keyInfo.key);
 
 	onMount(() => {
@@ -78,11 +89,34 @@
 		isShowDetail = !isShowDetail;
 	};
 
-	const downloadFile = async () => {
+	const handleDownload = () => {
+		if (asset.livePhotoVideoId) {
+			downloadFile(asset.livePhotoVideoId, true);
+			downloadFile(asset.id, false);
+			return;
+		}
+
+		downloadFile(asset.id, false);
+	};
+
+	/**
+	 * Get the filename of the asset based on the user defined template
+	 */
+	const getTemplateFilename = () => {
+		const filenameWithExtension = asset.originalPath.split('/').pop() as string;
+		const filenameWithoutExtension = filenameWithExtension.split('.')[0];
+		return {
+			filenameWithExtension,
+			filenameWithoutExtension
+		};
+	};
+
+	const downloadFile = async (assetId: string, isLivePhoto: boolean) => {
 		try {
-			const imageName = asset.exifInfo?.imageName ? asset.exifInfo?.imageName : asset.id;
-			const imageExtension = asset.originalPath.split('.')[1];
-			const imageFileName = imageName + '.' + imageExtension;
+			const { filenameWithoutExtension } = getTemplateFilename();
+
+			const imageExtension = isLivePhoto ? 'mov' : asset.originalPath.split('.')[1];
+			const imageFileName = filenameWithoutExtension + '.' + imageExtension;
 
 			// If assets is already download -> return;
 			if ($downloadAssets[imageFileName]) {
@@ -91,22 +125,16 @@
 
 			$downloadAssets[imageFileName] = 0;
 
-			const { data, status } = await api.assetApi.downloadFile(
-				asset.deviceAssetId,
-				asset.deviceId,
-				false,
-				false,
-				{
-					responseType: 'blob',
-					onDownloadProgress: (progressEvent) => {
-						if (progressEvent.lengthComputable) {
-							const total = progressEvent.total;
-							const current = progressEvent.loaded;
-							$downloadAssets[imageFileName] = Math.floor((current / total) * 100);
-						}
+			const { data, status } = await api.assetApi.downloadFile(assetId, false, false, {
+				responseType: 'blob',
+				onDownloadProgress: (progressEvent) => {
+					if (progressEvent.lengthComputable) {
+						const total = progressEvent.total;
+						const current = progressEvent.loaded;
+						$downloadAssets[imageFileName] = Math.floor((current / total) * 100);
 					}
 				}
-			);
+			});
 
 			if (!(data instanceof Blob)) {
 				return;
@@ -167,6 +195,38 @@
 			console.error('Error deleteSelectedAssetHandler', e);
 		}
 	};
+
+	const toggleFavorite = async () => {
+		const { data } = await api.assetApi.updateAsset(asset.id, {
+			isFavorite: !asset.isFavorite
+		});
+
+		asset.isFavorite = data.isFavorite;
+	};
+
+	const openAlbumPicker = (shared: boolean) => {
+		isShowAlbumPicker = true;
+		addToSharedAlbum = shared;
+	};
+
+	const handleAddToNewAlbum = () => {
+		isShowAlbumPicker = false;
+		api.albumApi.createAlbum({ albumName: 'Untitled', assetIds: [asset.id] }).then((response) => {
+			const album = response.data;
+			goto('/albums/' + album.id);
+		});
+	};
+
+	const handleAddToAlbum = async (event: CustomEvent<{ album: AlbumResponseDto }>) => {
+		isShowAlbumPicker = false;
+		const album = event.detail.album;
+
+		addAssetsToAlbum(album.id, [asset.id]).then((dto) => {
+			if (dto.successfullyAdded === 1 && dto.album) {
+				appearsInAlbums = [...appearsInAlbums, dto.album];
+			}
+		});
+	};
 </script>
 
 <section
@@ -174,11 +234,20 @@
 	class="fixed h-screen w-screen top-0 overflow-y-hidden bg-black z-[999] grid grid-rows-[64px_1fr] grid-cols-4"
 >
 	<div class="col-start-1 col-span-4 row-start-1 row-span-1 z-[1000] transition-transform">
-		<AsserViewerNavBar
+		<AssetViewerNavBar
+			{asset}
+			isMotionPhotoPlaying={shouldPlayMotionPhoto}
+			showCopyButton={asset.type === AssetTypeEnum.Image}
+			showMotionPlayButton={!!asset.livePhotoVideoId}
 			on:goBack={closeViewer}
 			on:showDetail={showDetailInfoHandler}
-			on:download={downloadFile}
+			on:download={handleDownload}
 			on:delete={deleteAsset}
+			on:favorite={toggleFavorite}
+			on:addToAlbum={() => openAlbumPicker(false)}
+			on:addToSharedAlbum={() => openAlbumPicker(true)}
+			on:playMotionPhoto={() => (shouldPlayMotionPhoto = true)}
+			on:stopMotionPhoto={() => (shouldPlayMotionPhoto = false)}
 		/>
 	</div>
 
@@ -194,6 +263,7 @@
 			halfLeftHover = false;
 		}}
 		on:click={navigateAssetBackward}
+		on:keydown={navigateAssetBackward}
 	>
 		<button
 			class="rounded-full p-3 hover:bg-gray-500 hover:text-gray-700 z-[1000]  text-gray-500 mx-4"
@@ -207,7 +277,15 @@
 	<div class="row-start-1 row-span-full col-start-1 col-span-4">
 		{#key asset.id}
 			{#if asset.type === AssetTypeEnum.Image}
-				<PhotoViewer assetId={asset.id} deviceId={asset.deviceId} on:close={closeViewer} />
+				{#if shouldPlayMotionPhoto && asset.livePhotoVideoId}
+					<VideoViewer
+						assetId={asset.livePhotoVideoId}
+						on:close={closeViewer}
+						on:onVideoEnded={() => (shouldPlayMotionPhoto = false)}
+					/>
+				{:else}
+					<PhotoViewer assetId={asset.id} on:close={closeViewer} />
+				{/if}
 			{:else}
 				<VideoViewer assetId={asset.id} on:close={closeViewer} />
 			{/if}
@@ -219,6 +297,7 @@
 			asset.type === AssetTypeEnum.Video ? '' : 'z-[500]'
 		}`}
 		on:click={navigateAssetForward}
+		on:keydown={navigateAssetForward}
 		on:mouseenter={() => {
 			halfLeftHover = false;
 			halfRightHover = true;
@@ -245,6 +324,16 @@
 		>
 			<DetailPanel {asset} albums={appearsInAlbums} on:close={() => (isShowDetail = false)} />
 		</div>
+	{/if}
+
+	{#if isShowAlbumPicker}
+		<AlbumSelectionModal
+			shared={addToSharedAlbum}
+			on:newAlbum={handleAddToNewAlbum}
+			on:newSharedAlbum={handleAddToNewAlbum}
+			on:album={handleAddToAlbum}
+			on:close={() => (isShowAlbumPicker = false)}
+		/>
 	{/if}
 </section>
 
